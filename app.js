@@ -9,6 +9,7 @@ app.use(express.urlencoded({ extended: true }))
 
 const CompanyRouter = require('./app/api/Company/CompanyRouter');
 const ExpenditureRouter = require('./app/api/Expenditure/ExpenditureRouter');
+const UserRouter = require('./app/api/user/UserRouter');
 
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -17,8 +18,11 @@ app.get('/', (req, res) => {
   });
 });
 
-app.use('/master/companies', CompanyRouter);
-app.use('/keuangan/expenditure', ExpenditureRouter);
+const authenticateUser = require('./app/api/middlewares/AuthMiddleWare');
+
+app.use('/', UserRouter);
+app.use('/master/companies', authenticateUser, CompanyRouter);
+app.use('/keuangan/expenditure', authenticateUser, ExpenditureRouter);
 
 
 app.listen(port, () => {

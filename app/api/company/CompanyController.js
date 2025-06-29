@@ -41,7 +41,6 @@ const store = async (req, res) => {
     try {
 
         const { nama, code } = req.body;
-        console.log('masuk controller');
 
         if (!nama) {
             return res.status(StatusCodes.BAD_REQUEST).json({
