@@ -109,6 +109,22 @@ const login = async (req, res) => {
     }
 }
 
+const logout = (req, res) => {
+    try {
+        return res.status(StatusCodes.OK).json({
+            status: 'success',
+            message: 'Logout berhasil!',
+            data: null
+        });
+    } catch (error) {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            status: 'error',
+            message: error.message,
+            data: null
+        });
+    }
+}
+
 module.exports = {
-    register, login
+    register, login, logout
 };

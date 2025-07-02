@@ -21,7 +21,7 @@ app.get('/', (req, res) => {
 const authenticateUser = require('./app/api/middlewares/AuthMiddleWare');
 
 app.use('/', UserRouter);
-app.use('/master/companies', authenticateUser, CompanyRouter);
+app.use('/master/companies', CompanyRouter);
 app.use('/keuangan/expenditure', authenticateUser, ExpenditureRouter);
 
 
