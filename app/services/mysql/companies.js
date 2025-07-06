@@ -1,6 +1,4 @@
-const { where } = require('sequelize');
 const db = require('../../../db');
-const { param } = require('../../api/company/CompanyRouter');
 
 function formatQuery(query, params) {
     let i = 0;

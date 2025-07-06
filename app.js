@@ -7,9 +7,12 @@ app.use(cors());
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-const CompanyRouter = require('./app/api/Company/CompanyRouter');
-const ExpenditureRouter = require('./app/api/Expenditure/ExpenditureRouter');
 const UserRouter = require('./app/api/user/UserRouter');
+const TipeRouter = require('./app/api/tipe/TipeRouter');
+const CompanyRouter = require('./app/api/company/CompanyRouter');
+const ExpenditureRouter = require('./app/api/Expenditure/ExpenditureRouter');
+const DivisiRouter = require('./app/api/divisi/DivisiRouter');
+const CategoryRoute = require('./app/api/category/CategoryRoute');
 
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -21,8 +24,11 @@ app.get('/', (req, res) => {
 const authenticateUser = require('./app/api/middlewares/AuthMiddleWare');
 
 app.use('/', UserRouter);
-app.use('/master/companies', CompanyRouter);
+app.use('/master/companies', authenticateUser, CompanyRouter);
+app.use('/master/tipes', authenticateUser, TipeRouter);
 app.use('/keuangan/expenditure', authenticateUser, ExpenditureRouter);
+app.use('/master/divisies', authenticateUser, DivisiRouter);
+app.use('/master/categories', authenticateUser, CategoryRoute);
 
 
 app.listen(port, () => {

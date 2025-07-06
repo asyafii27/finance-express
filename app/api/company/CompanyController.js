@@ -9,6 +9,7 @@ const index = async (req, res) => {
         const filters = {}
 
         if (req.query.nama) filters.nama = req.query.nama;
+        if (req.query.code) filters.code = req.query.code;
 
         const results = await getAllCompanies(page, limit, filters);
 

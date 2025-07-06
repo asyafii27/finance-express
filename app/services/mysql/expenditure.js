@@ -1,5 +1,5 @@
 const db = require('../../../db');
-const formatQuery = require('../../../app/helpers/generalHelper');
+const formatQuery = require('../../helpers/generalHelper');
 const { generateTransactionCode } = require('../../helpers/codeGenerator');
 const { BAD_GATEWAY } = require('http-status-codes');
 
