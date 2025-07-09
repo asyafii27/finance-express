@@ -13,6 +13,9 @@ const CompanyRouter = require('./app/api/company/CompanyRouter');
 const ExpenditureRouter = require('./app/api/Expenditure/ExpenditureRouter');
 const DivisiRouter = require('./app/api/divisi/DivisiRouter');
 const CategoryRoute = require('./app/api/category/CategoryRoute');
+const ProductRouter = require('./app/api/product/ProductRouter');
+const RekeningRouter = require('./app/api/rekening/RekeningRouter');
+const IncomeRouter = require('./app/api/income/IncomeRouter');
 
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -29,6 +32,9 @@ app.use('/master/tipes', authenticateUser, TipeRouter);
 app.use('/keuangan/expenditure', authenticateUser, ExpenditureRouter);
 app.use('/master/divisies', authenticateUser, DivisiRouter);
 app.use('/master/categories', authenticateUser, CategoryRoute);
+app.use('/master/products', authenticateUser, ProductRouter);
+app.use('/master/rekenings', authenticateUser, RekeningRouter);
+app.use('/finance/incomes', authenticateUser, IncomeRouter);
 
 
 app.listen(port, () => {

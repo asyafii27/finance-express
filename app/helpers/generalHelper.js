@@ -1,4 +1,3 @@
-const { response } = require('express');
 const db = require('../../db');
 const Logger = require('./winston');
 
