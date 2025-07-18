@@ -2,6 +2,9 @@ const { formatNamedParameters } = require('sequelize/lib/utils');
 const { countData } = require('../../helpers/count-data');
 const db = require('../../../db2');
 const mysql = require('mysql2/promise');
+const jwt = require('jsonwebtoken');
+const { authenticateUser } = require('./user')
+
 
 const getAllIncomes = async (page = 1, limit = 1, filters = {}) => {
     let tableName = 'transaksis';
@@ -89,4 +92,270 @@ const getAllIncomes = async (page = 1, limit = 1, filters = {}) => {
     };
 }
 
-module.exports = { getAllIncomes };
+const createIncome = async (data, user) => {
+    const [categoryRows] = await db.query(
+        'select * from categories where id = ?',
+        [data.category_id]
+    )
+    if (categoryRows.length === 0) throw new Error('Ketagori tidak ditemukan');
+    const tipeId = categoryRows[0].tipe_id;
+
+    const [customerRows] = await db.query(
+        'select * from clients where id = ?',
+        [data.customer_id]
+    )
+    if (customerRows.length === 0) throw new Error('Customer tidak ditemukan');
+    const customerName = customerRows[0].name;
+
+    const [divisiRows] = await db.query(
+        'select * from divisis where id = ?',
+        [data.divisi_id]
+    );
+    if (divisiRows.length === 0) throw new Error('Divisi tidak ditemukan');
+    const divisiName = divisiRows[0].nama;
+
+    const nominal = Number(data.produk.nominal) || 0;
+    const qty = Number(data.produk.qty) || 0;
+    const nominalDiscount = Number(data.produk.nominal_discount) || 0;
+
+    const totalNominal = nominal * qty;
+    const totalNominalAfterDiscount = totalNominal - nominalDiscount;
+    const nominalAfterAdminfee = totalNominalAfterDiscount;
+
+    const insertTransaksiQuery = `
+        INSERT INTO transaksis 
+            (tanggal, customer_id, customer_name, user_id, transaction_code, company_id, tipe_id, rekening_id, divisi_id, divisi, category_id, nominal, nominal_after_discount, nominal_after_admin_fee, keterangan, url_foto, created_by, created_at, updated_at)
+        VALUES (
+            ?,
+            ?,
+            ?,
+            ?,
+            ?, 
+            ?,
+            ?, 
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            NOW(),
+            NOW()
+        )
+    `;
+
+    const transactionCode = await generateTransactionCode('IN');
+    const transaksiParams = [
+        data.tanggal,
+        data.customer_id,
+        customerName,
+        user.id,
+        transactionCode,
+        data.company_id,
+        tipeId,
+        data.rekening_id,
+        data.divisi_id,
+        divisiName,
+        data.category_id,
+        data.produk.nominal,
+        totalNominalAfterDiscount,
+        nominalAfterAdminfee,
+        data.keterangan || null,
+        data.url_foto || null,
+        user.email
+    ];
+
+    const [transaksiResult] = await db.query(insertTransaksiQuery, transaksiParams);
+    const transaksiId = transaksiResult.insertId;
+
+    // 2. Insert ke tabel produk_transaksi
+    const insertProdukTransaksiQuery = `
+        INSERT INTO produk_transaksi
+            (transaksi_id, produk_id, qty, nominal, nominal_discount, total_nominal, total_nominal_after_discount, created_by, created_at, updated_at)
+        VALUES (
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            NOW(), 
+            NOW()
+        )`;
+
+    const produkParams = [
+        transaksiId,
+        data.produk.produk_id,
+        data.produk.qty || 1,
+        data.produk.nominal,
+        data.produk.nominal_discount || 0,
+        totalNominal,
+        totalNominalAfterDiscount,
+        user.email
+    ];
+    await db.query(insertProdukTransaksiQuery, produkParams);
+    console.log('transaksiId: ', transaksiId);
+
+
+    // 3. Ambil data transaksi yang baru saja di-insert (optional)
+    const [rows] = await db.query(
+        `SELECT * FROM transaksis WHERE id = ?`,
+        [transaksiId]
+    );
+
+    return rows[0];
+};
+
+const updateIncome = async (id, data, user) => {
+    const [existing] = await db.query('SELECT * FROM transaksis WHERE id = ?', [id]);
+    if (existing.length === 0) {
+        throw new Error('Transaksi tidak ditemukan');
+    }
+
+    const [categoryRows] = await db.query('SELECT * FROM categories WHERE id = ?', [data.category_id]);
+    if (categoryRows.length === 0) throw new Error('Kategori tidak ditemukan');
+    const tipeId = categoryRows[0].tipe_id;
+
+    const [customerRows] = await db.query('SELECT * FROM clients WHERE id = ?', [data.customer_id]);
+    if (customerRows.length === 0) throw new Error('Customer tidak ditemukan');
+    const customerName = customerRows[0].name;
+
+    const [divisiRows] = await db.query('SELECT * FROM divisis WHERE id = ?', [data.divisi_id]);
+    if (divisiRows.length === 0) throw new Error('Divisi tidak ditemukan');
+    const divisiName = divisiRows[0].nama;
+
+    const nominal = Number(data.produk.nominal) || 0;
+    const qty = Number(data.produk.qty) || 0;
+    const nominalDiscount = Number(data.produk.nominal_discount) || 0;
+
+    const totalNominal = nominal * qty;
+    const totalNominalAfterDiscount = totalNominal - nominalDiscount;
+    const nominalAfterAdminfee = totalNominalAfterDiscount;
+
+    const updateTransaksiQuery = `
+        UPDATE transaksis SET
+            tanggal = ?,
+            customer_id = ?,
+            customer_name = ?,
+            user_id = ?,
+            company_id = ?,
+            tipe_id = ?,
+            rekening_id = ?,
+            divisi_id = ?,
+            divisi = ?,
+            category_id = ?,
+            nominal = ?,
+            nominal_after_discount = ?,
+            nominal_after_admin_fee = ?,
+            keterangan = ?,
+            url_foto = ?,
+            updated_at = NOW(),
+            updated_by = ?
+        WHERE id = ?
+    `;
+
+    const transaksiParams = [
+        data.tanggal,
+        data.customer_id,
+        customerName,
+        user.id,
+        data.company_id,
+        tipeId,
+        data.rekening_id,
+        data.divisi_id,
+        divisiName,
+        data.category_id,
+        data.produk.nominal,
+        totalNominalAfterDiscount,
+        nominalAfterAdminfee,
+        data.keterangan || null,
+        data.url_foto || null,
+        user.email,
+        id
+    ];
+
+    await db.query(updateTransaksiQuery, transaksiParams);
+
+    // Update produk_transaksi
+    const updateProdukQuery = `
+        UPDATE produk_transaksi SET
+            produk_id = ?,
+            qty = ?,
+            nominal = ?,
+            nominal_discount = ?,
+            total_nominal = ?,
+            total_nominal_after_discount = ?,
+            updated_at = NOW(),
+            updated_by = ?
+        WHERE transaksi_id = ?
+    `;
+
+    const produkParams = [
+        data.produk.produk_id,
+        qty,
+        nominal,
+        nominalDiscount,
+        totalNominal,
+        totalNominalAfterDiscount,
+        user.email,
+        id
+    ];
+
+    await db.query(updateProdukQuery, produkParams);
+
+    const [rows] = await db.query('SELECT * FROM transaksis WHERE id = ?', [id]);
+    return rows[0];
+};
+
+
+const generateTransactionCode = async (prefix = 'IN') => {
+    const dateObj = new Date();
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = String(dateObj.getFullYear()).slice(-2);
+
+    const dateCode = `${year}${month}${day}`; // e.g., 250716
+    const baseCode = `${prefix}-${dateCode}`; // e.g., IN-250716
+
+    const [countResult] = await db.query(
+        `SELECT COUNT(*) as total FROM transaksis WHERE transaction_code LIKE ?`,
+        [`${baseCode}-%`]
+    );
+
+    const urutan = countResult[0].total + 1;
+    const formattedUrutan = String(urutan).padStart(4, '0'); // e.g., 0001
+
+    return `${baseCode}-${formattedUrutan}`;
+};
+
+const deleteIncome = async (transaksiId) => {
+    try {
+        // 1. Hapus dari produk_transaksi
+        await db.query(
+            'DELETE FROM produk_transaksi WHERE transaksi_id = ?',
+            [transaksiId]
+        );
+
+        // 2. Hapus dari transaksis
+        await db.query(
+            'DELETE FROM transaksis WHERE id = ?',
+            [transaksiId]
+        );
+
+        console.log(`Data transaksi dengan ID ${transaksiId} berhasil dihapus`);
+        return true;
+    } catch (error) {
+        console.error('Gagal menghapus transaksi:', error);
+        throw error;
+    }
+};
+
+
+
+module.exports = { getAllIncomes, createIncome, updateIncome, deleteIncome };

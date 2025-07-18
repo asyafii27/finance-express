@@ -144,6 +144,22 @@ const loginUser = async ({ email, password }) => {
     });
 };
 
+const authenticateUser = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) return res.status(401).json({ message: 'Token tidak ditemukan' });
+
+    try {
+        const decoded = jwt.verify(token, 'RAHASIA_JWT_KAMU');
+        req.user = decoded;
+        next();
+    } catch (err) {
+        res.status(403).json({ message: 'Token tidak valid' });
+    }
+};
+
+
 module.exports = {
-    registerUser, loginUser
+    registerUser, loginUser, authenticateUser
 };
