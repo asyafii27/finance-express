@@ -62,9 +62,32 @@ const getAllIncomes = async (page = 1, limit = 1, filters = {}) => {
 
     // JOIN companies
     const dataQuery = `
-        SELECT t.*, c.id as company_id, c.nama as company_name
+        SELECT t.*, pt.*, 
+        u.id as user_id,
+        tp.id as tipe_id, 
+        tp.nama as tipe_name,
+        u.name as user_name,
+        c.id as company_id,
+        c.code as company_code,
+        d.id as divisi_id, 
+        d.nama as divisi_name, 
+        cat.id as category_id,
+        cat.nama as category_name,
+        pt.produk_id as produk_id,
+        p.nama as produk_name,
+        r.id as rekenig_id,
+        r.nomor as rekening_nomor,
+        r.code as rekening_code
+
         FROM ${tableName} t
+        left join tipes as tp on t.tipe_id = tp.id
         LEFT JOIN companies c ON t.company_id = c.id
+        left join users as u on t.user_id = u.id
+        left join divisis as d on t.divisi_id = d.id
+        left join categories as cat on t.category_id = cat.id
+        left join produk_transaksi as pt on t.id = pt.transaksi_id
+        left join produks as p on pt.produk_id = p.id
+        left join rekenings as r on t.rekening_id = r.id
         ${whereClause}
         ORDER BY t.created_at DESC
         LIMIT ? OFFSET ?
